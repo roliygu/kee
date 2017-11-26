@@ -10,6 +10,8 @@ import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{DataFrame, Dataset}
 import org.apache.spark.storage.StorageLevel
 
+import scala.collection.mutable.ArrayBuffer
+
 /**
   *
   * @param uid
@@ -18,8 +20,7 @@ import org.apache.spark.storage.StorageLevel
   * @param activeDate 激活日期
   * @param limit      初始额度
   */
-case class User(var id: String, uid: Long, age: Int, sex: Int, activeDate: Date, limit: Double,
-                var clicks: Seq[Click], var orders: Seq[Order], var loans: Seq[Loan], var loanSum: LoanSum)
+case class User(var id: String, uid: Long, age: Int, sex: Int, activeDate: Date, limit: Double, var clicks: Seq[Click], var orders: Seq[Order], var loans: Seq[Loan], var loanSum: LoanSum)
 
 /**
   *
@@ -29,8 +30,8 @@ case class User(var id: String, uid: Long, age: Int, sex: Int, activeDate: Date,
   * @param param 点击页面所带参数
   */
 case class Click(uid: Long, clickTime: Timestamp, pid: Long, param: Long)
-// 月度点击数，不分页面和param
 
+// 月度点击数，不分页面和param
 
 /**
   *
@@ -42,6 +43,7 @@ case class Click(uid: Long, clickTime: Timestamp, pid: Long, param: Long)
   * @param discount 优惠金额
   */
 case class Order(uid: Long, buyDate: Date, price: Double, number: Int, cateId: Long, discount: Double)
+
 // 月度总订单金额
 // 月度，max(单价*数量-优惠, 0)
 // 月度订单数
@@ -54,9 +56,9 @@ case class Order(uid: Long, buyDate: Date, price: Double, number: Int, cateId: L
   * @param planNum    分期数
   */
 case class Loan(uid: Long, loanTime: Timestamp, loanAmount: Double, planNum: Int)
+
 // 月度总额
 // 月度频次
-
 
 case class LoanSum(uid: Long, loanSum: Double)
 
@@ -71,6 +73,7 @@ object DataDescription {
     val LOAN_PATH = s"$PREFIX/loan"
     val LOAN_SUM_PATH = s"$PREFIX/loan_sum"
     val ALL_USER_PATH = s"$PREFIX/all_user"
+    val JOIN_ALL_USER_PATH = s"$PREFIX/join_all_user"
     val NOV_FIRST = 1477929600000L // 2016-11-01
 
     val random: Int = (Math.random() * 1000).toInt
@@ -177,7 +180,7 @@ object DataDescription {
 
     def loadLoanSum(): Dataset[LoanSum] = SparkUtils.sqlContext.read.parquet(LOAN_SUM_PATH).as[LoanSum]
 
-    def loadAllUser(): Dataset[User] = SparkUtils.sqlContext.read.parquet(ALL_USER_PATH).as[User]
+    def loadAllUser(): Dataset[User] = SparkUtils.sqlContext.read.parquet(JOIN_ALL_USER_PATH).as[User]
 
     def fillClick(_users: RDD[(Long, User)], _clicks: RDD[(Long, Click)], month: Int): RDD[(Long, User)] = {
         val clicks = _clicks.filter(e => e._2.clickTime.getMonth < month)
@@ -260,11 +263,12 @@ object DataDescription {
 
     /**
       * 过滤掉month之后(包括month)的行为数据，并拿month整月的loan做成loanSum
+      *
       * @param rawUser
       * @param rawClick
       * @param rawOrder
       * @param rawLoan
-      * @param _month  1-base 9表示9月
+      * @param _month 1-base 9表示9月
       * @return
       */
     def joinData(rawUser: Dataset[User], rawClick: Dataset[Click], rawOrder: Dataset[Order], rawLoan: Dataset[Loan], _month: Int): RDD[User] = {
@@ -275,7 +279,7 @@ object DataDescription {
         val withLoan = fillLoans(withOrder, rawLoan.rdd.map(e => (e.uid, e)), month)
         fillLoanSum(withLoan, rawLoan.rdd.map(e => (e.uid, e)), month)
                 .map(_._2)
-                .map{user=>
+                .map { user =>
                     user.id = s"${user.uid}_${_month}_${random}"
                     user
                 }
@@ -352,8 +356,8 @@ object DataDescription {
                         (uid, user)
                 }
 
-        HDFSUtils.deleteIfExist(ALL_USER_PATH)
-        withLoanSum.map(_._2).toDF().write.parquet(ALL_USER_PATH)
+        HDFSUtils.deleteIfExist(JOIN_ALL_USER_PATH)
+        withLoanSum.map(_._2).toDF().write.parquet(JOIN_ALL_USER_PATH)
 
     }
 
@@ -423,6 +427,77 @@ object DataDescription {
         val path = s"${PREFIX}/all_user"
         HDFSUtils.deleteIfExist(path)
         month9.union(month10).union(month11).toDF.write.parquet(path)
+
+    }
+
+    // case class User(var id: String, uid: Long, age: Int, sex: Int, activeDate: Date, limit: Double, var clicks: Seq[Click], var orders: Seq[Order], var loans: Seq[Loan], var loanSum: LoanSum)
+
+    def featureExtract(users: Dataset[User]): Dataset[String] = {
+
+        users.map { user =>
+
+            val res = ArrayBuffer[String]()
+
+            // 用户基础信息
+            res.append(user.uid.toString)
+            res.append(user.age.toString)
+            res.append(user.sex.toString)
+            res.append(s"${user.activeDate.getYear + 1900}-${user.activeDate.getMonth + 1}")
+            res.append(user.limit.toString)
+
+            // click按月聚集
+            val clickValueMap = user.clicks.groupBy(_.clickTime.getMonth).map {
+                case (key, clicks) => (key + 1, clicks.size)
+            }
+            for (i <- 8 to 11) {
+
+                clickValueMap.get(i) match {
+                    case Some(v) => res.append(v.toString)
+                    case _ => res.append("0")
+                }
+            }
+
+            // order按月聚集
+            val orderValueMap = user.orders.groupBy(_.buyDate.getMonth).map {
+                case (key, orders) =>
+                    val month = key + 1
+                    val sum = orders.map(e => Math.max(e.price * e.number - e.discount, 0)).sum
+                    (month, (orders.size, sum))
+            }
+            for (i <- 8 to 11) {
+                orderValueMap.get(i) match {
+                    case Some(v) =>
+                        res.append(v._1.toString)
+                        res.append(v._2.toString)
+                    case _ =>
+                        res.append("0")
+                        res.append("0.0")
+                }
+
+            }
+
+            // loan按月聚合
+            val loanValueMap = user.loans.groupBy(_.loanTime.getMonth).map {
+                case (key, loans) =>
+                    val month = key + 1
+                    val sum = loans.map(_.loanAmount).sum
+                    (month, (loans.size, sum))
+            }
+            for (i <- 8 to 11) {
+                loanValueMap.get(i) match {
+                    case Some(v) =>
+                        res.append(v._1.toString)
+                        res.append(v._2.toString)
+                    case _ =>
+                        res.append("0")
+                        res.append("0.0")
+                }
+
+            }
+
+            res.append(user.loanSum.loanSum.toString)
+            String.join(",", res: _*)
+        }
 
     }
 
