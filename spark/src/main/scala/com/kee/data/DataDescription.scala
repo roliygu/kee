@@ -29,6 +29,8 @@ case class User(var id: String, uid: Long, age: Int, sex: Int, activeDate: Date,
   * @param param 点击页面所带参数
   */
 case class Click(uid: Long, clickTime: Timestamp, pid: Long, param: Long)
+// 月度点击数，不分页面和param
+
 
 /**
   *
@@ -40,6 +42,9 @@ case class Click(uid: Long, clickTime: Timestamp, pid: Long, param: Long)
   * @param discount 优惠金额
   */
 case class Order(uid: Long, buyDate: Date, price: Double, number: Int, cateId: Long, discount: Double)
+// 月度总订单金额
+// 月度，max(单价*数量-优惠, 0)
+// 月度订单数
 
 /**
   *
@@ -49,6 +54,9 @@ case class Order(uid: Long, buyDate: Date, price: Double, number: Int, cateId: L
   * @param planNum    分期数
   */
 case class Loan(uid: Long, loanTime: Timestamp, loanAmount: Double, planNum: Int)
+// 月度总额
+// 月度频次
+
 
 case class LoanSum(uid: Long, loanSum: Double)
 
