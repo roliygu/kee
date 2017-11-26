@@ -1,0 +1,7 @@
+# parquet tools(https://github.com/apache/parquet-mr/blob/master/parquet-tools/README.md)
+
+## dependency: hadoop client
+
+## Usage:
+
+    $HADOOP_HOME/bin/hadoop jar path/to/paruqet-tools [CMD] file://[path/to/data]
