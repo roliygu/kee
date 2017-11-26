@@ -4,6 +4,8 @@ import java.sql.{Date, Timestamp}
 import java.text.SimpleDateFormat
 
 import com.kee.utils.{HDFSUtils, SparkUtils}
+import org.apache.spark.mllib.linalg.Vectors
+import org.apache.spark.mllib.regression.LabeledPoint
 import org.apache.spark.sql.Dataset
 
 /**
@@ -59,6 +61,7 @@ object DataDescription {
     val LOAN_PATH = s"$PREFIX/loan"
     val LOAN_SUM_PATH = s"$PREFIX/loan_sum"
     val ALL_USER_PATH = s"$PREFIX/all_user"
+    val NOV_FIRST = 1477929600000L // 2016-11-01
 
     def convertUser() = {
         val sourcePath = "/Users/roliy/jdd_data/t_user.csv"
@@ -70,7 +73,7 @@ object DataDescription {
                 .map { e =>
                     val slices = e.split(",")
                     val dateSlices = slices(3).split("-").map(_.toInt)
-                    val date = new Date(dateSlices(0) - 1900, dateSlices(1), dateSlices(2))
+                    val date = new Date(dateSlices(0) - 1900, dateSlices(1) - 1, dateSlices(2))
                     User(slices(0).toLong, slices(1).toInt, slices(2).toInt, date, slices(4).toDouble,
                         Seq(), Seq(), Seq(), null)
                 }.toDF()
@@ -109,7 +112,7 @@ object DataDescription {
                 .map { e =>
                     val slices = e.split(",")
                     val dateSlices = slices(1).split("-").map(_.toInt)
-                    val date = new Date(dateSlices(0) - 1900, dateSlices(1), dateSlices(2))
+                    val date = new Date(dateSlices(0) - 1900, dateSlices(1) - 1, dateSlices(2))
                     val price = if (slices(2).nonEmpty) slices(2).toDouble else -1
                     Order(slices(0).toLong, date, price, slices(3).toInt, slices(4).toLong, slices(5).toDouble)
                 }.toDF()
@@ -222,7 +225,6 @@ object DataDescription {
                         (uid, user)
                 }
 
-
         val loanSum = DataDescription.loadLoanSum().map(e => (e.uid, e)).rdd
 
         val withLoanSum = withLoans.leftOuterJoin(loanSum)
@@ -236,7 +238,58 @@ object DataDescription {
                         (uid, user)
                 }
 
+        HDFSUtils.deleteIfExist(ALL_USER_PATH)
         withLoanSum.map(_._2).toDF().write.parquet(ALL_USER_PATH)
 
     }
+
+    /**
+      * 过滤掉11月的行为数据，避免穿越。而且预测12月数据时，也没有12月的行为数据。
+      *
+      * @param users
+      */
+    def filterNovBehavior(users: Dataset[User]): Dataset[User] = {
+        val cmpTimestamp = new Timestamp(NOV_FIRST)
+        val cmpDate = new Date(NOV_FIRST)
+        users.map { user =>
+            user.clicks = user.clicks.filter(_.clickTime.before(cmpTimestamp))
+            user.orders = user.orders.filter(_.buyDate.before(cmpDate))
+            user.loans = user.loans.filter(_.loanTime.before(cmpTimestamp))
+            user
+        }
+    }
+
+    def fe(users: Dataset[User]): Dataset[LabeledPoint] = {
+        users.map { user =>
+            // val feats = Array(user.uid, user.age, user.sex, user.activeDate.getTime, user.limit)
+            val feats = Array(user.age.toDouble, user.limit, user.sex,
+                user.activeDate.getYear,
+                user.activeDate.getMonth,
+                user.activeDate.getDate
+            )
+            LabeledPoint(user.loanSum.loanSum, Vectors.dense(feats))
+        }
+    }
+
+    def cross(sample: Dataset[LabeledPoint]): (Dataset[LabeledPoint], Dataset[LabeledPoint]) = {
+        val marked = sample.map { item =>
+            if (Math.random() > 0.1) {
+                (1, item)
+            } else {
+                (0, item)
+            }
+        }
+        val train = marked.filter(_._1 == 1).map(_._2)
+        val validate = marked.filter(_._1 == 0).map(_._2)
+        (train, validate)
+    }
+
+    def calRMSE(predict: Dataset[(Double, Double)]): Double = {
+        predict.cache()
+        val count = predict.count()
+        Math.sqrt(predict.map { e =>
+            (e._1 - e._2) * (e._1 - e._2)
+        }.reduce(_ + _) / count)
+    }
+
 }
