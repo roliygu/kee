@@ -1,6 +1,7 @@
 package com.kee
 
 import com.kee.data._
+import com.kee.utils.SparkUtils
 import org.apache.spark.mllib.regression.LinearRegressionWithSGD
 import org.apache.spark.storage.StorageLevel
 
@@ -13,7 +14,25 @@ object Entrance {
     }
 
     def main(args: Array[String]): Unit = {
-        statistics()
+
+        //        import com.kee.utils.SparkUtils.sqlContext.implicits._
+        //
+        //        val users = DataDescription.loadAllUser().filter(_.id.split("_")(1).toInt == 11).cache()
+        //        val loanSum = DataDescription.loadLoanSum().cache()
+        //
+        ////        val usersCount = users.count()
+        //        val loanSumCount = loanSum.count()
+        //        println("a")
+        //
+        //        val different = users.map(e => (e.uid, e)).rdd.join(
+        //            loanSum.map(e => (e.uid, e)).rdd
+        //        ).map {
+        //            case (uid, (user, loanSumOpt)) =>
+        //               s"${uid}\t${user.loanSum.loanSum}\t${loanSumOpt.loanSum}"
+        //        }.repartition(1).saveAsTextFile("./spark/diff")
+        //
+        //        println(different)
+
     }
 
     def train() = {
