@@ -56,6 +56,15 @@ object Entrance {
         rawFeature.map(e => FeatureUtils.feByMonth(e, 11, false))
                 .map(_.toString).repartition(1).saveAsTextFile(month11Path)
 
+        val monthNovStep2Path = "./spark/month11Step2"
+        HDFSUtils.deleteIfExist(monthNovStep2Path)
+        rawFeature.map(FeatureUtils.feStep2Nov)
+                .map(_.toString()).repartition(1).saveAsTextFile(monthNovStep2Path)
+
+//        val monthDecStep2Path = "./spark/month12Step2"
+//        HDFSUtils.deleteIfExist(monthNovStep2Path)
+//        rawFeature.map(FeatureUtils.feStep2Dec)
+        // 还需要在join上loadAmount12
 
     }
 

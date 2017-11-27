@@ -74,5 +74,30 @@ object FeatureUtils {
         instance
     }
 
+    def feStep2Nov(item: RawFeature): Instance = {
+        val index = 2
+        Instance().addDiscrete("age", item.age)
+                .addDiscrete("sex", item.sex)
+                .addContinuous("limit", item.limit)
+                .addContinuous(s"clickNum_${index}", item.clickNum(index - 1))
+                .addContinuous(s"orderNum_${index}", item.orderNum(index - 1))
+                .addContinuous(s"orderAmount_${index}", item.orderAmount(index - 1))
+                .addContinuous(s"loanNum_${index}", item.loanNum(index - 1))
+                .addContinuous(s"loanAmount_${index}", item.loanAmount(index - 1))
+                .labeled(item.loanSum.loanSum)
+    }
+
+    def feStep2Dec(item: RawFeature): Instance = {
+        val index = 3
+        Instance().addDiscrete("age", item.age)
+                .addDiscrete("sex", item.sex)
+                .addContinuous("limit", item.limit)
+                .addContinuous(s"clickNum_${index}", item.clickNum(index - 1))
+                .addContinuous(s"orderNum_${index}", item.orderNum(index - 1))
+                .addContinuous(s"orderAmount_${index}", item.orderAmount(index - 1))
+                .addContinuous(s"loanNum_${index}", item.loanNum(index - 1))
+                .addContinuous(s"loanAmount_${index}", item.loanAmount(index - 1))
+    }
+
 
 }
