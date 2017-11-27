@@ -2,27 +2,42 @@ package com.kee
 
 import com.kee.data.DataDescription.{convertClick, convertLoan, convertOrder, convertUser}
 import com.kee.data._
-import com.kee.utils.{HDFSUtils, SparkUtils}
+import com.kee.utils.{FeatureUtils, HDFSUtils, SparkUtils}
 import org.apache.spark.mllib.regression.LinearRegressionWithSGD
 import org.apache.spark.storage.StorageLevel
 
 object Entrance {
 
-    def statistics(): Unit = {
-        val users = DataDescription.loadAllUser()
-        val collect = users.filter(_.loanSum.loanSum > 0.0).collect()
-        println(users.filter(_.loanSum.loanSum > 0.0).count())
+    def generateData() = {
+
+        import com.kee.utils.SparkUtils.sqlContext.implicits._
+
+        // 5张表转成parquet
+        DataDescription.convertUser()
+        DataDescription.convertLoanSum()
+        DataDescription.convertLoan()
+        DataDescription.convertOrder()
+        DataDescription.convertClick()
+
+        // 五个parquet join成一个大表 AllUser
+        DataDescription.joinData()
+
+        // 大表经过数据处理，得到RawFeature
+        val allUser = DataDescription.loadAllUser()
+        val rawFeats = DataDescription.generateRawFeature(allUser)
+        val featMonth = Seq[Int]()
+        val labelMonth = Seq[Int]()
+        val feats = rawFeats.rdd.map(e => FeatureUtils.fe(e, featMonth, labelMonth))
+        HDFSUtils.deleteIfExist("./spark/fes")
+        feats.map(_.toString).saveAsTextFile("./spark/fes")
+
     }
 
     def main(args: Array[String]): Unit = {
 
         import com.kee.utils.SparkUtils.sqlContext.implicits._
 
-        val users = DataDescription.loadAllUser()
-        val path = "./spark/fe"
-        HDFSUtils.deleteIfExist(path)
-        DataDescription.featureExtract(users).rdd.repartition(1).saveAsTextFile(path)
-
+        generateData()
 
     }
 

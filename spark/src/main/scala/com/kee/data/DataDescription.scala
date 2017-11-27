@@ -10,8 +10,6 @@ import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{DataFrame, Dataset}
 import org.apache.spark.storage.StorageLevel
 
-import scala.collection.mutable.ArrayBuffer
-
 /**
   *
   * @param uid
@@ -21,6 +19,15 @@ import scala.collection.mutable.ArrayBuffer
   * @param limit      初始额度
   */
 case class User(var id: String, uid: Long, age: Int, sex: Int, activeDate: Date, limit: Double, var clicks: Seq[Click], var orders: Seq[Order], var loans: Seq[Loan], var loanSum: LoanSum)
+
+case class RawFeature(var uid: Long = -1, var age: Int = -1, var sex: Int = -1, var activeDate: Date = null, var limit: Double = -1,
+                      var clickNum: Seq[Int] = null,
+                      var orderNum: Seq[Int] = null,
+                      var orderAmount: Seq[Double] = null,
+                      var loanNum: Seq[Int] = null,
+                      var loanAmount: Seq[Double] = null,
+                      var loanSum: LoanSum = null
+                     )
 
 /**
   *
@@ -55,7 +62,7 @@ case class Order(uid: Long, buyDate: Date, price: Double, number: Int, cateId: L
   * @param loanAmount 贷款总数
   * @param planNum    分期数
   */
-case class Loan(uid: Long, loanTime: Timestamp, loanAmount: Double, planNum: Int)
+case class Loan(uid: Long, loanTime: Timestamp, var loanAmount: Double, var planNum: Int)
 
 // 月度总额
 // 月度频次
@@ -430,32 +437,33 @@ object DataDescription {
 
     }
 
-    // case class User(var id: String, uid: Long, age: Int, sex: Int, activeDate: Date, limit: Double, var clicks: Seq[Click], var orders: Seq[Order], var loans: Seq[Loan], var loanSum: LoanSum)
-
-    def featureExtract(users: Dataset[User]): Dataset[String] = {
+    def generateRawFeature(users: Dataset[User]): Dataset[RawFeature] = {
 
         users.map { user =>
 
-            val res = ArrayBuffer[String]()
+            val rawFeature = RawFeature()
 
             // 用户基础信息
-            res.append(user.uid.toString)
-            res.append(user.age.toString)
-            res.append(user.sex.toString)
-            res.append(s"${user.activeDate.getYear + 1900}-${user.activeDate.getMonth + 1}")
-            res.append(user.limit.toString)
+            rawFeature.uid = user.uid
+            rawFeature.age = user.age
+            rawFeature.sex = user.sex
+            rawFeature.activeDate = user.activeDate
+            rawFeature.limit = user.limit
 
-            // click按月聚集
+
+            // click按月聚集，
             val clickValueMap = user.clicks.groupBy(_.clickTime.getMonth).map {
+                // getMonth是 0-base，加1与自然月一致
                 case (key, clicks) => (key + 1, clicks.size)
             }
-            for (i <- 8 to 11) {
-
-                clickValueMap.get(i) match {
-                    case Some(v) => res.append(v.toString)
-                    case _ => res.append("0")
+            rawFeature.clickNum = for {
+                i <- 8 to 11
+                click = clickValueMap.get(i) match {
+                    case Some(v) => v
+                    case _ => 0
                 }
-            }
+            } yield click
+
 
             // order按月聚集
             val orderValueMap = user.orders.groupBy(_.buyDate.getMonth).map {
@@ -464,39 +472,59 @@ object DataDescription {
                     val sum = orders.map(e => Math.max(e.price * e.number - e.discount, 0)).sum
                     (month, (orders.size, sum))
             }
-            for (i <- 8 to 11) {
-                orderValueMap.get(i) match {
-                    case Some(v) =>
-                        res.append(v._1.toString)
-                        res.append(v._2.toString)
-                    case _ =>
-                        res.append("0")
-                        res.append("0.0")
+            val orderPairs = for {
+                i <- 8 to 11
+                orderPair =  orderValueMap.get(i) match {
+                    case Some(v) => v
+                    case _ => (0, 0.0)
                 }
+            } yield orderPair
+            val (orderNum, orderAmount) = orderPairs.unzip
+            rawFeature.orderNum = orderNum
+            rawFeature.orderAmount = orderAmount
 
-            }
 
             // loan按月聚合
-            val loanValueMap = user.loans.groupBy(_.loanTime.getMonth).map {
+            val loanMonthGroup = user.loans.groupBy(_.loanTime.getMonth)
+            val loanValueMap = loanMonthGroup.map {
                 case (key, loans) =>
                     val month = key + 1
                     val sum = loans.map(_.loanAmount).sum
                     (month, (loans.size, sum))
             }
-            for (i <- 8 to 11) {
-                loanValueMap.get(i) match {
-                    case Some(v) =>
-                        res.append(v._1.toString)
-                        res.append(v._2.toString)
-                    case _ =>
-                        res.append("0")
-                        res.append("0.0")
+            val loanPairs = for {
+                i <- 8 to 11
+                loanPair = loanValueMap.get(i) match {
+                    case Some(v) => v
+                    case _ => (0, 0.0)
                 }
+            } yield loanPair
+            val (loanNum, loanAmount) = loanPairs.unzip
+            rawFeature.loanNum = loanNum
+            rawFeature.loanAmount = loanAmount
 
-            }
+            rawFeature.loanSum = user.loanSum
 
-            res.append(user.loanSum.loanSum.toString)
-            String.join(",", res: _*)
+            //            // 当月应还贷款
+            //            var loanQue = ArrayBuffer[Loan]()
+            //            val shouldLoan = ArrayBuffer[Double]()
+            //            for (i <- 9 to 12){
+            //                loanQue.appendAll(loanMonthGroup.getOrElse(i - 1, Seq()))
+            //                var sum = 0.0
+            //                for(loan <- loanQue){
+            //                    sum += loan.loanAmount / loan.planNum
+            //                    loan.loanAmount -= loan.loanAmount / loan.planNum
+            //                    loan.planNum -= 1
+            //                }
+            //                loanQue = loanQue.filter(_.planNum == 0)
+            //                shouldLoan.append(sum)
+            //            }
+            //
+            //            res.append(user.loanSum.loanSum.toString)
+            //            // res.appendAll(shouldLoan.map(_.toString))
+            //            String.join(",", res: _*)
+
+            rawFeature
         }
 
     }
