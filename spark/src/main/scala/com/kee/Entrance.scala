@@ -24,12 +24,9 @@ object Entrance {
 
         // 大表经过数据处理，得到RawFeature
         val allUser = DataDescription.loadAllUser()
-        val rawFeats = DataDescription.generateRawFeature(allUser)
-        val featMonth = Seq[Int]()
-        val labelMonth = Seq[Int]()
-        val feats = rawFeats.rdd.map(e => FeatureUtils.fe(e, featMonth, labelMonth))
-        HDFSUtils.deleteIfExist("./spark/fes")
-        feats.map(_.toString).saveAsTextFile("./spark/fes")
+        val path = "/Users/roliy/jdd_data/raw_feature"
+        HDFSUtils.deleteIfExist(path)
+        DataDescription.generateRawFeature(allUser).toDF().write.parquet(path)
 
     }
 
@@ -37,7 +34,28 @@ object Entrance {
 
         import com.kee.utils.SparkUtils.sqlContext.implicits._
 
-        generateData()
+        val rawFeature = DataDescription.loadRawFeature().rdd
+
+        val month8Path = "./spark/month8"
+        HDFSUtils.deleteIfExist(month8Path)
+        rawFeature.map(e => FeatureUtils.feByMonth(e, 8, true))
+                .map(_.toString).repartition(1).saveAsTextFile(month8Path)
+
+        val month9Path = "./spark/month9"
+        HDFSUtils.deleteIfExist(month9Path)
+        rawFeature.map(e => FeatureUtils.feByMonth(e, 9, true))
+                .map(_.toString).repartition(1).saveAsTextFile(month9Path)
+
+        val month10Path = "./spark/month10"
+        HDFSUtils.deleteIfExist(month10Path)
+        rawFeature.map(e => FeatureUtils.feByMonth(e, 10, true))
+                .map(_.toString).repartition(1).saveAsTextFile(month10Path)
+
+        val month11Path = "./spark/month11"
+        HDFSUtils.deleteIfExist(month11Path)
+        rawFeature.map(e => FeatureUtils.feByMonth(e, 11, false))
+                .map(_.toString).repartition(1).saveAsTextFile(month11Path)
+
 
     }
 

@@ -10,20 +10,20 @@ class Feature {
 
 case class Discrete(slot: String, value: String) extends Feature {
     override def toString: String = {
-        val index = slot.concat(value).hashCode % FeatureUtils.round
+        val index = Math.abs(slot.concat(value).hashCode) % FeatureUtils.round
         s"$index:1"
     }
 }
 
 case class Continuous(slot: String, value: Double) extends Feature {
     override def toString: String = {
-        val index = slot.hashCode % FeatureUtils.round
+        val index = Math.abs(slot.hashCode) % FeatureUtils.round
         s"$index:$value"
     }
 
 }
 
-case class Instance(var _label: String = "0.0", features: ArrayBuffer[Feature] = ArrayBuffer[Feature]()) {
+case class Instance(var _label: String = "0", features: ArrayBuffer[Feature] = ArrayBuffer[Feature]()) {
 
     def labeled(label: Any): Instance = {
         _label = label.toString
@@ -56,11 +56,22 @@ object FeatureUtils {
 
     val round = 1000
 
-    def fe(item: RawFeature, featMonth: Seq[Int], labelMonth: Seq[Int]): Instance = {
-        Instance().labeled(item.loanSum.loanSum)
-                .addDiscrete("age", item.age)
+    def feByMonth(item: RawFeature, month: Int, label: Boolean): Instance = {
+        val index = month - 7
+        val instance = Instance().addDiscrete("age", item.age)
                 .addDiscrete("sex", item.sex)
                 .addContinuous("limit", item.limit)
+                .addContinuous(s"clickNum_${index}", item.clickNum(index - 1))
+                .addContinuous(s"orderNum_${index}", item.orderNum(index - 1))
+                .addContinuous(s"orderAmount_${index}", item.orderAmount(index - 1))
+                .addContinuous(s"loanNum_${index}", item.loanNum(index - 1))
+                .addContinuous(s"loanAmount_${index}", item.loanAmount(index - 1))
+
+        if(label){
+            instance.labeled(item.loanAmount(index))
+        }
+
+        instance
     }
 
 

@@ -81,6 +81,7 @@ object DataDescription {
     val LOAN_SUM_PATH = s"$PREFIX/loan_sum"
     val ALL_USER_PATH = s"$PREFIX/all_user"
     val JOIN_ALL_USER_PATH = s"$PREFIX/join_all_user"
+    val RAW_FEATURE_PATH = s"$PREFIX/raw_feature"
     val NOV_FIRST = 1477929600000L // 2016-11-01
 
     val random: Int = (Math.random() * 1000).toInt
@@ -528,5 +529,13 @@ object DataDescription {
         }
 
     }
+
+    def dumpRawFeature(): Unit = {
+        val allUser = DataDescription.loadAllUser()
+        HDFSUtils.deleteIfExist(RAW_FEATURE_PATH)
+        DataDescription.generateRawFeature(allUser).toDF().write.parquet(RAW_FEATURE_PATH)
+    }
+
+    def loadRawFeature(): Dataset[RawFeature] = SparkUtils.sqlContext.read.parquet(RAW_FEATURE_PATH).as[RawFeature]
 
 }
