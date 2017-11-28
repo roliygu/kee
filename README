@@ -1,3 +1,19 @@
 # raw data
 
 链接: https://pan.baidu.com/s/1kUTZW6V 密码: ug9x
+
+# 数据生成过程及解释
+
+原始数据: t_click.csv, t_loan.csv, t_loan_sum.csv, t_order.csv, t_user.csv
+
+DataDescription中定义了5个表对应的具体类: Click,Loan,LoanSum,Order,User。
+配套有convertXXX和loadXXX方法，convertXXX用来将csv文件转成以上面类定义的parquet文件，loadXXX方法用来加载parquet数据。
+
+Click,Loan,LoanSum,Order,User这5个数据，通过DataDescription.joinData()方法拼成一个完整的User数据。
+即，将Loan，Order，Click这些数据聚合成数组，再按uid和User join上得到的。比如，User.clicks包含，该user的所有Click。
+
+从User数据生成RawFeature:
+RawFeature用来表示进一步数据处理之后的大宽表。比如将Click按月切分统计等等操作。主要在DataDescription.generateData()方法中。
+
+从RawFeature生成样本数据:
+通过比照FeatureUtils.feByMonth可以新增生成样本的逻辑。主要用来，选择哪些列，具体的列作为离散or连续特征，label取哪个字段。
