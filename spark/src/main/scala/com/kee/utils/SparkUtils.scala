@@ -19,6 +19,7 @@ object SparkUtils {
             sparkConf.setMaster("local[4]")
         }
         sparkConf.set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
+        sparkConf.set("spark.kryoserializer.buffer.max", "512m")
         sparkConf
     }
 
