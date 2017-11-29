@@ -19,6 +19,10 @@ clickPageParam8 1_45:3;1_30:1;10_28:20;7_4:1;1_18:1;1_26:1;9_3:1;1_31:1;1_20:1;9
 clickPageParam9 1_45:1;10_28:16;7_8:1;1_19:1;10_16:9
 clickPageParam10 1_45:2;10_28:10;1_34:1;9_3:1;9_2:1;7_8:1;9_1:1;1_19:3;10_16:3
 clickPageParam11 1_45:1;10_28:11;7_8:1;10_30:2;10_29:1;1_16:1;1_19:1;7_7:1;10_16:8
+clickParam8 
+clickParam9
+clickParam10
+clickParam11
 orderNum8 8
 orderNum9 10
 orderNum10 4

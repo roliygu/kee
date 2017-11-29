@@ -33,7 +33,7 @@ object Entrance {
     def main(args: Array[String]): Unit = {
 
         import com.kee.utils.SparkUtils.sqlContext.implicits._
-        // DataDescription.dumpRawFeature()
+        DataDescription.dumpRawFeature()
         HDFSUtils.deleteIfExist("./spark/feats")
         DataDescription.loadRawFeature().map(_.toString).repartition(1).rdd.saveAsTextFile("./spark/feats")
 

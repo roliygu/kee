@@ -24,6 +24,7 @@ case class RawFeature(var uid: Long = -1, var age: Int = -1, var sex: Int = -1, 
                       var clickNum: Seq[Int] = null,
                       var clickPage: Seq[String] = null, // "1:2;2:10;3:2"
                       var clickPageParam: Seq[String] = null, // "1_1:2;2_3:10;3_1:2"
+                      var clickParam: Seq[String] = null,
                       var orderNum: Seq[Int] = null,
                       var orderAmount: Seq[Double] = null,
                       var discountAmount: Seq[Double] = null,
@@ -54,6 +55,7 @@ case class RawFeature(var uid: Long = -1, var age: Int = -1, var sex: Int = -1, 
         appendSeq(clickNum, sb)
         appendSeq(clickPage, sb)
         appendSeq(clickPageParam, sb)
+        appendSeq(clickParam, sb)
         appendSeq(orderNum, sb)
         appendSeq(orderAmount, sb)
         appendSeq(discountAmount, sb)
@@ -502,18 +504,20 @@ object DataDescription {
                     val month = key + 1
                     val clickPage = clicks.groupBy(_.pid).map(e => (e._1, e._2.size)).map(pair => s"${pair._1}:${pair._2}").reduce((e1, e2) => s"${e1};${e2}")
                     val clickPageParam = clicks.groupBy(e => s"${e.pid}_${e.param}").map(e => (e._1, e._2.size)).map(pair => s"${pair._1}:${pair._2}").reduce((e1, e2) => s"${e1};${e2}")
-                    (month, (clicks.size, clickPage, clickPageParam))
+                    val clickParam = clicks.groupBy(_.param).map(e => (e._1, e._2.size)).map(pair => s"${pair._1}:${pair._2}").reduce((e1, e2) => s"${e1};${e2}")
+                    (month, (clicks.size, clickPage, clickPageParam, clickParam))
             }
             val clickValueSeq = for {
                 i <- 8 to 11
                 value = clickValueMap.get(i) match {
                     case Some(v) => v
-                    case _ => (0, "", "")
+                    case _ => (0, "", "", "")
                 }
             } yield value
             rawFeature.clickNum = clickValueSeq.map(_._1)
             rawFeature.clickPage = clickValueSeq.map(_._2)
             rawFeature.clickPageParam = clickValueSeq.map(_._3)
+            rawFeature.clickParam = clickValueSeq.map(_._4)
 
             def calAmountPrice(order: Order) = Math.max(order.price * order.number - order.discount, 0)
             // order按月聚集
