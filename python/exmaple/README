@@ -5,3 +5,4 @@
 
   ## data will be output of stdout
   ## idmap will be saved to ${datafile}.idmap
+  ## schema formulation: "_d" for discrete, "_m" for map, "label=" for label column
