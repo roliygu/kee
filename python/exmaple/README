@@ -1,0 +1,7 @@
+
+# Usage of format.py
+
+` python format.py [datafile] [schemafile]`
+
+  ## data will be output of stdout
+  ## idmap will be saved to ${datafile}.idmap
