@@ -33,34 +33,38 @@ object Entrance {
     def main(args: Array[String]): Unit = {
 
         import com.kee.utils.SparkUtils.sqlContext.implicits._
+        DataDescription.dumpRawFeature()
+        HDFSUtils.deleteIfExist("./spark/feats")
+        DataDescription.loadRawFeature().map(_.toString).repartition(1).rdd.saveAsTextFile("./spark/feats")
 
-        val rawFeature = DataDescription.loadRawFeature().rdd
 
-        val month8Path = "./spark/month8"
-        HDFSUtils.deleteIfExist(month8Path)
-        rawFeature.map(e => FeatureUtils.feByMonth(e, 8, true))
-                .map(_.toString).repartition(1).saveAsTextFile(month8Path)
-
-        val month9Path = "./spark/month9"
-        HDFSUtils.deleteIfExist(month9Path)
-        rawFeature.map(e => FeatureUtils.feByMonth(e, 9, true))
-                .map(_.toString).repartition(1).saveAsTextFile(month9Path)
-
-        val month10Path = "./spark/month10"
-        HDFSUtils.deleteIfExist(month10Path)
-        rawFeature.map(e => FeatureUtils.feByMonth(e, 10, true))
-                .map(_.toString).repartition(1).saveAsTextFile(month10Path)
-
-        val month11Path = "./spark/month11"
-        HDFSUtils.deleteIfExist(month11Path)
-        rawFeature.map(e => FeatureUtils.feByMonth(e, 11, false))
-                .map(_.toString).repartition(1).saveAsTextFile(month11Path)
-
-        val monthNovStep2Path = "./spark/month11Step2"
-        HDFSUtils.deleteIfExist(monthNovStep2Path)
-        rawFeature.map(FeatureUtils.feStep2Nov)
-                .map(_.toString()).repartition(1).saveAsTextFile(monthNovStep2Path)
-
+//        val rawFeature = DataDescription.loadRawFeature().rdd
+//
+//        val month8Path = "./spark/month8"
+//        HDFSUtils.deleteIfExist(month8Path)
+//        rawFeature.map(e => FeatureUtils.feByMonth(e, 8, true))
+//                .map(_.toString).repartition(1).saveAsTextFile(month8Path)
+//
+//        val month9Path = "./spark/month9"
+//        HDFSUtils.deleteIfExist(month9Path)
+//        rawFeature.map(e => FeatureUtils.feByMonth(e, 9, true))
+//                .map(_.toString).repartition(1).saveAsTextFile(month9Path)
+//
+//        val month10Path = "./spark/month10"
+//        HDFSUtils.deleteIfExist(month10Path)
+//        rawFeature.map(e => FeatureUtils.feByMonth(e, 10, true))
+//                .map(_.toString).repartition(1).saveAsTextFile(month10Path)
+//
+//        val month11Path = "./spark/month11"
+//        HDFSUtils.deleteIfExist(month11Path)
+//        rawFeature.map(e => FeatureUtils.feByMonth(e, 11, false))
+//                .map(_.toString).repartition(1).saveAsTextFile(month11Path)
+//
+//        val monthNovStep2Path = "./spark/month11Step2"
+//        HDFSUtils.deleteIfExist(monthNovStep2Path)
+//        rawFeature.map(FeatureUtils.feStep2Nov)
+//                .map(_.toString()).repartition(1).saveAsTextFile(monthNovStep2Path)
+//
 //        val monthDecStep2Path = "./spark/month12Step2"
 //        HDFSUtils.deleteIfExist(monthNovStep2Path)
 //        rawFeature.map(FeatureUtils.feStep2Dec)

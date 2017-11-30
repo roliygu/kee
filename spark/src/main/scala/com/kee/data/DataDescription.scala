@@ -22,12 +22,58 @@ case class User(var id: String, uid: Long, age: Int, sex: Int, activeDate: Date,
 
 case class RawFeature(var uid: Long = -1, var age: Int = -1, var sex: Int = -1, var activeDate: Date = null, var limit: Double = -1,
                       var clickNum: Seq[Int] = null,
+                      var clickPage: Seq[String] = null, // "1:2;2:10;3:2"
+                      var clickPageParam: Seq[String] = null, // "1_1:2;2_3:10;3_1:2"
+                      var clickParam: Seq[String] = null,
                       var orderNum: Seq[Int] = null,
                       var orderAmount: Seq[Double] = null,
+                      var discountAmount: Seq[Double] = null,
+                      var avgDiscount: Seq[Double] = null,
+                      var amountByCateId: Seq[String] = null,
                       var loanNum: Seq[Int] = null,
                       var loanAmount: Seq[Double] = null,
+                      var avgLoanPerPlan: Seq[Double] = null,
                       var loanSum: LoanSum = null
-                     )
+                     ) {
+
+    def appendSeq(items: Seq[Any], sb: StringBuilder) = {
+        for(item <- items){
+            sb.append(",")
+            sb.append(item)
+        }
+    }
+
+    override def toString: String = {
+
+        val sb = new StringBuilder()
+        sb.append(uid).append(",")
+        sb.append(age).append(",")
+        sb.append(sex).append(",")
+        sb.append(s"${activeDate.getYear+1900}-${activeDate.getMonth+1}").append(",")
+        sb.append(limit)
+
+        appendSeq(clickNum, sb)
+        appendSeq(clickPage, sb)
+        appendSeq(clickPageParam, sb)
+        appendSeq(clickParam, sb)
+        appendSeq(orderNum, sb)
+        appendSeq(orderAmount, sb)
+        appendSeq(discountAmount, sb)
+        appendSeq(avgDiscount, sb)
+        appendSeq(amountByCateId, sb)
+
+        appendSeq(loanNum, sb)
+        appendSeq(loanAmount, sb)
+        appendSeq(avgLoanPerPlan, sb)
+
+        sb.append(",").append(loanSum.loanSum)
+
+        sb.toString()
+
+    }
+
+
+}
 
 /**
   *
@@ -451,39 +497,51 @@ object DataDescription {
             rawFeature.activeDate = user.activeDate
             rawFeature.limit = user.limit
 
-
             // click按月聚集，
             val clickValueMap = user.clicks.groupBy(_.clickTime.getMonth).map {
                 // getMonth是 0-base，加1与自然月一致
-                case (key, clicks) => (key + 1, clicks.size)
+                case (key, clicks) =>
+                    val month = key + 1
+                    val clickPage = clicks.groupBy(_.pid).map(e => (e._1, e._2.size)).map(pair => s"${pair._1}:${pair._2}").reduce((e1, e2) => s"${e1};${e2}")
+                    val clickPageParam = clicks.groupBy(e => s"${e.pid}_${e.param}").map(e => (e._1, e._2.size)).map(pair => s"${pair._1}:${pair._2}").reduce((e1, e2) => s"${e1};${e2}")
+                    val clickParam = clicks.groupBy(_.param).map(e => (e._1, e._2.size)).map(pair => s"${pair._1}:${pair._2}").reduce((e1, e2) => s"${e1};${e2}")
+                    (month, (clicks.size, clickPage, clickPageParam, clickParam))
             }
-            rawFeature.clickNum = for {
+            val clickValueSeq = for {
                 i <- 8 to 11
-                click = clickValueMap.get(i) match {
+                value = clickValueMap.get(i) match {
                     case Some(v) => v
-                    case _ => 0
+                    case _ => (0, "", "", "")
                 }
-            } yield click
+            } yield value
+            rawFeature.clickNum = clickValueSeq.map(_._1)
+            rawFeature.clickPage = clickValueSeq.map(_._2)
+            rawFeature.clickPageParam = clickValueSeq.map(_._3)
+            rawFeature.clickParam = clickValueSeq.map(_._4)
 
-
+            def calAmountPrice(order: Order) = Math.max(order.price * order.number - order.discount, 0)
             // order按月聚集
             val orderValueMap = user.orders.groupBy(_.buyDate.getMonth).map {
                 case (key, orders) =>
                     val month = key + 1
-                    val sum = orders.map(e => Math.max(e.price * e.number - e.discount, 0)).sum
-                    (month, (orders.size, sum))
+                    val sum = orders.map(calAmountPrice).sum
+                    val discountAmount = orders.map(_.discount).sum
+                    val avgDiscount = discountAmount / orders.size
+                    val amountPricePerCateId = orders.groupBy(_.cateId).map(e => (e._1, e._2.map(calAmountPrice).sum)).map(pair => s"${pair._1}:${pair._2}").reduce((e1, e2) => s"${e1};${e2}")
+                    (month, (orders.size, sum, discountAmount, avgDiscount, amountPricePerCateId))
             }
-            val orderPairs = for {
+            val orderPairSeq = for {
                 i <- 8 to 11
-                orderPair =  orderValueMap.get(i) match {
+                orderPair = orderValueMap.get(i) match {
                     case Some(v) => v
-                    case _ => (0, 0.0)
+                    case _ => (0, 0.0, 0.0, 0.0, "")
                 }
             } yield orderPair
-            val (orderNum, orderAmount) = orderPairs.unzip
-            rawFeature.orderNum = orderNum
-            rawFeature.orderAmount = orderAmount
-
+            rawFeature.orderNum = orderPairSeq.map(_._1)
+            rawFeature.orderAmount = orderPairSeq.map(_._2)
+            rawFeature.discountAmount = orderPairSeq.map(_._3)
+            rawFeature.avgDiscount = orderPairSeq.map(_._4)
+            rawFeature.amountByCateId = orderPairSeq.map(_._5)
 
             // loan按月聚合
             val loanMonthGroup = user.loans.groupBy(_.loanTime.getMonth)
@@ -491,18 +549,20 @@ object DataDescription {
                 case (key, loans) =>
                     val month = key + 1
                     val sum = loans.map(_.loanAmount).sum
-                    (month, (loans.size, sum))
+                    val avg = loans.map(e => e.loanAmount / e.planNum).sum / loans.size
+                    (month, (loans.size, sum, avg))
             }
             val loanPairs = for {
                 i <- 8 to 11
                 loanPair = loanValueMap.get(i) match {
                     case Some(v) => v
-                    case _ => (0, 0.0)
+                    case _ => (0, 0.0, 0.0)
                 }
             } yield loanPair
-            val (loanNum, loanAmount) = loanPairs.unzip
+            val (loanNum, loanAmount, avgLoan) = loanPairs.unzip3
             rawFeature.loanNum = loanNum
             rawFeature.loanAmount = loanAmount
+            rawFeature.avgLoanPerPlan = avgLoan
 
             rawFeature.loanSum = user.loanSum
 
