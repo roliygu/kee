@@ -1,7 +1,7 @@
 ### 特征列表
 
 ```
-50列
+90列
 uid 38926
 age 35
 sex 1
@@ -56,4 +56,40 @@ avgLoanPerPlan9 0.0
 avgLoanPerPlan10 0.0
 avgLoanPerPlan11 0.0
 loanSum 0.0
+clickNum10Latest1Month
+clickNum9Latest2Month
+clickNum8Latest3Month
+orderNum10Latest1Month
+orderNum9Latest2Month
+orderNum8Latest3Month
+orderAmount10Latest1Month
+orderAmount9Latest2Month
+orderAmount8Latest3Month
+discountAmount10Latest1Month
+discountAmount9Latest2Month
+discountAmount8Latest3Month
+avgDiscount10Latest1Month
+avgDiscount9Latest2Month
+avgDiscount8Latest3Month
+loanNum10Latest1Month
+loanNum9Latest2Month
+loanNum8Latest3Month
+loanAmount10Latest1Month
+loanAmount9Latest2Month
+loanAmount8Latest3Month
+avgLoanPerPlan10Latest1Month
+avgLoanPerPlan9Latest2Month
+avgLoanPerPlan8Latest3Month
+clickPageParam10Latest1Month
+clickPageParam9Latest2Month
+clickPageParam8Latest3Month
+clickPage10Latest1Month
+clickPage9Latest2Month
+clickPage8Latest3Month
+clickParam10Latest1Month
+clickParam9Latest2Month
+clickParam8Latest3Month
+amountByCateId10Latest1Month
+amountByCateId9Latest2Month
+amountByCateId8Latest3Month
 ```
