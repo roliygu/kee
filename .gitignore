@@ -161,3 +161,9 @@ venv.bak/
 src/target
 spark/spark-domain.iml
 .idea
+
+#mac os
+### macOS ###
+*.DS_Store
+.AppleDouble
+.LSOverride
